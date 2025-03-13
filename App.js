@@ -4,140 +4,134 @@ import {
   View,
   Text,
   FlatList,
-  Image,
-  TouchableOpacity,
   StyleSheet,
   ActivityIndicator,
-  Alert,
   ScrollView,
 } from 'react-native';
 import { NavigationContainer } from '@react-navigation/native';
 import { createStackNavigator } from '@react-navigation/stack';
-import AsyncStorage from '@react-native-async-storage/async-storage';
 import { LinearGradient } from 'expo-linear-gradient';
 import Icon from 'react-native-vector-icons/MaterialIcons';
 
-const API_URL = 'https://fakestoreapi.com/products';
+// Mock API data (simulating JSONServer response)
+const mockTransactions = [
+  { id: 1, amount: 1500, category: 'Salary', date: '2025-03-01', type: 'income' },
+  { id: 2, amount: -200, category: 'Groceries', date: '2025-03-02', type: 'expense' },
+  { id: 3, amount: -50, category: 'Transport', date: '2025-03-03', type: 'expense' },
+  { id: 4, amount: 2000, category: 'Freelance', date: '2025-03-05', type: 'income' },
+  { id: 5, amount: -300, category: 'Rent', date: '2025-03-06', type: 'expense' },
+  { id: 6, amount: -75, category: 'Entertainment', date: '2025-03-07', type: 'expense' },
+];
+
 const Stack = createStackNavigator();
 
-// Home Screen Component
-const HomeScreen = ({ navigation }) => {
-  const [products, setProducts] = useState([]);
+// Dashboard Screen Component
+const DashboardScreen = () => {
+  const [transactions, setTransactions] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null);
-  const [cartCount, setCartCount] = useState(0);
 
   useEffect(() => {
-    fetchProducts();
-    loadCartCount();
+    fetchTransactions();
   }, []);
 
-  const fetchProducts = async () => {
+  // Simulate API call
+  const fetchTransactions = async () => {
     try {
       setLoading(true);
-      const response = await fetch(API_URL);
-      if (!response.ok) throw new Error('Failed to fetch products');
-      const data = await response.json();
-      setProducts(data);
-    } catch (err) {
-      setError('Error fetching products. Please try again.');
-      Alert.alert('Error', 'Failed to load products.');
+      // Simulate network delay
+      await new Promise(resolve => setTimeout(resolve, 1000));
+      setTransactions(mockTransactions);
+    } catch (error) {
+      console.error('Error fetching transactions:', error);
     } finally {
       setLoading(false);
     }
   };
 
-  const loadCartCount = async () => {
-    try {
-      const cart = await AsyncStorage.getItem('cart');
-      const cartItems = cart ? JSON.parse(cart) : [];
-      setCartCount(cartItems.length);
-    } catch (err) {
-      console.error('Error loading cart:', err);
-    }
-  };
+  // Calculate totals using reduce
+  const totals = transactions.reduce(
+    (acc, transaction) => {
+      if (transaction.type === 'income') {
+        acc.income += transaction.amount;
+      } else {
+        acc.expenses += Math.abs(transaction.amount); // Convert negative to positive
+      }
+      acc.balance = acc.income - acc.expenses;
+      return acc;
+    },
+    { income: 0, expenses: 0, balance: 0 }
+  );
 
-  const addToCart = async (product) => {
-    try {
-      const cart = await AsyncStorage.getItem('cart');
-      const cartItems = cart ? JSON.parse(cart) : [];
-      const updatedCart = [...cartItems, { ...product, quantity: 1 }];
-      await AsyncStorage.setItem('cart', JSON.stringify(updatedCart));
-      setCartCount(updatedCart.length);
-      Alert.alert('Success', `${product.title} added to cart!`);
-    } catch (err) {
-      Alert.alert('Error', 'Failed to add to cart.');
-    }
-  };
-
-  const renderProductCard = ({ item }) => (
-    <TouchableOpacity
-      style={styles.card}
-      onPress={() => navigation.navigate('Details', { product: item, addToCart })}
-    >
-      <Image source={{ uri: item.image }} style={styles.productImage} />
-      <LinearGradient colors={['transparent', 'rgba(0,0,0,0.8)']} style={styles.gradient}>
-        <Text style={styles.title} numberOfLines={2}>{item.title}</Text>
-        <Text style={styles.price}>${item.price.toFixed(2)}</Text>
-      </LinearGradient>
-    </TouchableOpacity>
+  const renderTransaction = ({ item }) => (
+    <View style={styles.transactionCard}>
+      <View style={styles.transactionIcon}>
+        <Icon
+          name={item.type === 'income' ? 'arrow-upward' : 'arrow-downward'}
+          size={20}
+          color={item.type === 'income' ? '#4CAF50' : '#FF5252'}
+        />
+      </View>
+      <View style={styles.transactionDetails}>
+        <Text style={styles.transactionCategory}>{item.category}</Text>
+        <Text style={styles.transactionDate}>{item.date}</Text>
+      </View>
+      <Text
+        style={[
+          styles.transactionAmount,
+          { color: item.type === 'income' ? '#4CAF50' : '#FF5252' },
+        ]}
+      >
+        {item.type === 'income' ? '+' : '-'}${Math.abs(item.amount).toFixed(2)}
+      </Text>
+    </View>
   );
 
   if (loading) {
     return (
-      <LinearGradient colors={['#ff6f61', '#ff4081']} style={styles.loadingContainer}>
+      <LinearGradient colors={['#1a1a2e', '#16213e']} style={styles.loadingContainer}>
         <ActivityIndicator size="large" color="#fff" />
-        <Text style={styles.loadingText}>Loading Products...</Text>
+        <Text style={styles.loadingText}>Loading Transactions...</Text>
       </LinearGradient>
     );
   }
 
   return (
-    <LinearGradient colors={['#ff6f61', '#ff4081']} style={styles.container}>
-      <View style={styles.header}>
-        <Text style={styles.headerText}>Abdul-Rahman E-Commerce</Text>
-        <TouchableOpacity onPress={() => Alert.alert('Cart', `Items: ${cartCount}`)}>
-          <Icon name="shopping-cart" size={28} color="#fff" />
-          {cartCount > 0 && (
-            <View style={styles.cartBadge}>
-              <Text style={styles.cartBadgeText}>{cartCount}</Text>
+    <LinearGradient colors={['#1a1a2e', '#16213e']} style={styles.container}>
+      <ScrollView contentContainerStyle={styles.scrollContent}>
+        {/* Summary Section */}
+        <View style={styles.summaryContainer}>
+          <Text style={styles.summaryTitle}>Financial Overview</Text>
+          <View style={styles.summaryCards}>
+            <View style={styles.summaryCard}>
+              <Icon name="trending-up" size={24} color="#4CAF50" />
+              <Text style={styles.summaryLabel}>Income</Text>
+              <Text style={styles.summaryAmount}>${totals.income.toFixed(2)}</Text>
             </View>
-          )}
-        </TouchableOpacity>
-      </View>
-      {error ? (
-        <Text style={styles.errorText}>{error}</Text>
-      ) : (
-        <FlatList
-          data={products}
-          renderItem={renderProductCard}
-          keyExtractor={item => item.id.toString()}
-          numColumns={2}
-          contentContainerStyle={styles.productList}
-        />
-      )}
-    </LinearGradient>
-  );
-};
+            <View style={styles.summaryCard}>
+              <Icon name="trending-down" size={24} color="#FF5252" />
+              <Text style={styles.summaryLabel}>Expenses</Text>
+              <Text style={styles.summaryAmount}>${totals.expenses.toFixed(2)}</Text>
+            </View>
+            <View style={styles.summaryCard}>
+              <Icon name="account-balance" size={24} color="#FFD700" />
+              <Text style={styles.summaryLabel}>Balance</Text>
+              <Text style={styles.summaryAmount}>${totals.balance.toFixed(2)}</Text>
+            </View>
+          </View>
+        </View>
 
-// Details Screen Component
-const DetailsScreen = ({ route }) => {
-  const { product, addToCart } = route.params;
-
-  return (
-    <LinearGradient colors={['#ff6f61', '#ff4081']} style={styles.detailsContainer}>
-      <ScrollView>
-        <Image source={{ uri: product.image }} style={styles.detailsImage} />
-        <View style={styles.detailsContent}>
-          <Text style={styles.detailsTitle}>{product.title}</Text>
-          <Text style={styles.detailsPrice}>${product.price.toFixed(2)}</Text>
-          <Text style={styles.detailsCategory}>Category: {product.category}</Text>
-          <Text style={styles.detailsDescription}>{product.description}</Text>
-          <TouchableOpacity style={styles.addToCartButton} onPress={() => addToCart(product)}>
-            <LinearGradient colors={['#ff4081', '#ff6f61']} style={styles.buttonGradient}>
-              <Text style={styles.buttonText}>Add to Cart</Text>
-            </LinearGradient>
-          </TouchableOpacity>
+        {/* Transactions List */}
+        <View style={styles.transactionsContainer}>
+          <Text style={styles.transactionsTitle}>Recent Transactions</Text>
+          <FlatList
+            data={transactions}
+            renderItem={renderTransaction}
+            keyExtractor={item => item.id.toString()}
+            contentContainerStyle={styles.transactionList}
+            ListEmptyComponent={
+              <Text style={styles.emptyText}>No transactions found</Text>
+            }
+          />
         </View>
       </ScrollView>
     </LinearGradient>
@@ -149,14 +143,17 @@ export default function App() {
   return (
     <NavigationContainer>
       <Stack.Navigator
-        initialRouteName="Home"
+        initialRouteName="Dashboard"
         screenOptions={{
-          headerStyle: { backgroundColor: '#ff4081' },
+          headerStyle: { backgroundColor: '#1a1a2e' },
           headerTintColor: '#fff',
         }}
       >
-        <Stack.Screen name="Home" component={HomeScreen} options={{ headerShown: false }} />
-        <Stack.Screen name="Details" component={DetailsScreen} options={{ title: 'Product Details' }} />
+        <Stack.Screen
+          name="Dashboard"
+          component={DashboardScreen}
+          options={{ title: 'Expense Tracker' }}
+        />
       </Stack.Navigator>
     </NavigationContainer>
   );
@@ -167,33 +164,8 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
   },
-  header: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    padding: 20,
-    paddingTop: 40,
-  },
-  headerText: {
-    color: '#fff',
-    fontSize: 24,
-    fontWeight: 'bold',
-  },
-  cartBadge: {
-    position: 'absolute',
-    top: -5,
-    right: -5,
-    backgroundColor: '#fff',
-    borderRadius: 10,
-    width: 20,
-    height: 20,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  cartBadgeText: {
-    color: '#ff4081',
-    fontSize: 12,
-    fontWeight: 'bold',
+  scrollContent: {
+    paddingBottom: 20,
   },
   loadingContainer: {
     flex: 1,
@@ -202,94 +174,89 @@ const styles = StyleSheet.create({
   },
   loadingText: {
     color: '#fff',
-    fontSize: 16,
     marginTop: 10,
-  },
-  errorText: {
     fontSize: 16,
-    color: '#fff',
-    textAlign: 'center',
-    marginVertical: 20,
   },
-  productList: {
-    paddingHorizontal: 10,
-    paddingBottom: 20,
-  },
-  card: {
-    flex: 1,
-    margin: 10,
-    borderRadius: 15,
-    backgroundColor: '#fff',
-    elevation: 5,
-    overflow: 'hidden',
-    maxWidth: '45%',
-  },
-  productImage: {
-    width: '100%',
-    height: 180,
-    resizeMode: 'contain',
-  },
-  gradient: {
-    padding: 10,
-    alignItems: 'center',
-  },
-  title: {
-    fontSize: 14,
-    fontWeight: 'bold',
-    color: '#fff',
-    textAlign: 'center',
-  },
-  price: {
-    fontSize: 16,
-    color: '#ddd',
-    marginTop: 5,
-    fontWeight: 'bold',
-  },
-  detailsContainer: {
-    flex: 1,
-  },
-  detailsImage: {
-    width: '100%',
-    height: 300,
-    resizeMode: 'cover',
-  },
-  detailsContent: {
+  summaryContainer: {
     padding: 20,
   },
-  detailsTitle: {
+  summaryTitle: {
     color: '#fff',
-    fontSize: 22,
+    fontSize: 24,
     fontWeight: 'bold',
-    marginBottom: 10,
+    marginBottom: 15,
   },
-  detailsPrice: {
-    color: '#ffd700',
+  summaryCards: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+  },
+  summaryCard: {
+    backgroundColor: 'rgba(255,255,255,0.1)',
+    borderRadius: 10,
+    padding: 15,
+    alignItems: 'center',
+    width: '30%',
+  },
+  summaryLabel: {
+    color: '#ddd',
+    fontSize: 14,
+    marginTop: 5,
+  },
+  summaryAmount: {
+    color: '#fff',
+    fontSize: 18,
+    fontWeight: 'bold',
+    marginTop: 5,
+  },
+  transactionsContainer: {
+    paddingHorizontal: 20,
+  },
+  transactionsTitle: {
+    color: '#fff',
     fontSize: 20,
     fontWeight: 'bold',
     marginBottom: 10,
   },
-  detailsCategory: {
-    color: '#ddd',
-    fontSize: 16,
-    marginBottom: 15,
+  transactionList: {
+    paddingBottom: 20,
   },
-  detailsDescription: {
-    color: '#fff',
-    fontSize: 14,
-    lineHeight: 20,
-    marginBottom: 20,
-  },
-  addToCartButton: {
-    borderRadius: 25,
-    overflow: 'hidden',
-  },
-  buttonGradient: {
-    paddingVertical: 15,
+  transactionCard: {
+    flexDirection: 'row',
+    backgroundColor: 'rgba(255,255,255,0.05)',
+    borderRadius: 10,
+    padding: 15,
+    marginBottom: 10,
     alignItems: 'center',
   },
-  buttonText: {
+  transactionIcon: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: 'rgba(255,255,255,0.1)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 10,
+  },
+  transactionDetails: {
+    flex: 1,
+  },
+  transactionCategory: {
     color: '#fff',
     fontSize: 16,
     fontWeight: 'bold',
+  },
+  transactionDate: {
+    color: '#ddd',
+    fontSize: 12,
+  },
+  transactionAmount: {
+    fontSize: 16,
+    fontWeight: 'bold',
+  },
+  emptyText: {
+    color: '#ddd',
+    textAlign: 'center',
+    fontSize: 16,
+    padding: 20,
   },
 });
